@@ -1,136 +1,188 @@
 import os
-import sys
-import time
 import webbrowser
-import threading
-import queue
-import pyttsx3
+import subprocess
+import requests   # kept (unused now), per your request not to change other parts
+import base64     # kept (unused now)
+from difflib import get_close_matches
 import speech_recognition as sr
-import pystray
-from pystray import MenuItem as item
+import pyttsx3
+from datetime import datetime
+
+# === NEW: Gemini imports (minimal addition) ==========================
+from io import BytesIO
 from PIL import Image
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+# =====================================================================
 
-# ------------------- SPEECH ENGINE -------------------
-speech_queue = queue.Queue()
-engine = pyttsx3.init("sapi5")
-voices = engine.getProperty("voices")
-engine.setProperty("voice", voices[0].id)
+# -------------------- SETTINGS --------------------
+FOLDER_PATHS = {
+    "downloads": r"C:\Users\PCS\Downloads",
+    "documents": r"C:\Users\PCS\Documents",
+    "desktop":   r"C:\Users\PCS\Desktop",
+    "d drive":   r"D:\\",
+    "voice agent": r"D:\Voice-driven agent",
+    "pictures":  r"C:\Users\PCS\Pictures",
+    "bandicam":  r"C:\Users\PCS\Documents\Bandicam",
+    "music":     r"C:\Users\PCS\Music",
+    "videos":    r"C:\Users\PCS\Videos",
+}
 
-def speech_loop():
-    while True:
-        text = speech_queue.get()
-        if text is None:
-            break
-        engine.say(text)
-        engine.runAndWait()
-        speech_queue.task_done()
+WEBSITES = {
+    "youtube": "https://www.youtube.com",
+    "instagram": "https://www.instagram.com",
+    "canva": "https://www.canva.com",
+    "linkedin": "https://www.linkedin.com",
+    "google": "https://www.google.com",
+}
 
+APPS = {
+    "notepad": "notepad.exe",
+    "calculator": "calc.exe",
+    "paint": "mspaint.exe",   # safer than Paint3D.exe
+}
+
+# === NEW: Initialize Gemini client (reads your .env) =================
+load_dotenv()
+API_KEY = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=API_KEY) if API_KEY else genai.Client()
+# =====================================================================
+
+# -------------------- SPEECH ENGINE --------------------
+engine = pyttsx3.init()
 def speak(text):
-    print(f"Assistant: {text}")
-    speech_queue.put(text)
+    engine.say(text)
+    engine.runAndWait()
 
-# ------------------- LISTEN FUNCTION -------------------
-def listen():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Listening...")
-        r.pause_threshold = 1
-        try:
-            audio = r.listen(source, timeout=5, phrase_time_limit=8)
-            query = r.recognize_google(audio, language="en-in")
-            print(f"You said: {query}")
-            return query
-        except Exception:
-            return ""
+# -------------------- FUZZY MATCH --------------------
+def fuzzy_lookup(command, mapping):
+    matches = get_close_matches(command, mapping.keys(), n=1, cutoff=0.6)
+    return matches[0] if matches else None
 
-# ------------------- BROWSER FUNCTION -------------------
-def browser(url):
-    d1 = {
-        "youtube": "https://www.youtube.com/",
-        "wikipedia": "https://www.wikipedia.org/",
-        "notepad": "notepad.exe",
-        "chatgpt": "https://chatgpt.com/",
-        "gmail": "https://mail.google.com/mail/u/0/?tab=rm&ogbl#inbox",
-        "github": "https://github.com/mariam-2324",
-        "linkedin": "http://www.linkedin.com/in/mariam-saad-b8645335b",
-        "facebook": "https://www.facebook.com/",
-    }
+# -------------------- IMAGE GENERATION (SWITCHED TO GEMINI) ----------
+def generate_image(prompt: str):
+    """
+    Replaced Vyro with Gemini 2.0 Flash Preview Image Generation.
+    Saves PNG to Generated_Images and opens it (your previous behavior).
+    """
+    # Safety: ensure API key is present
+    if not API_KEY:
+        speak("Gemini API key is not set. Please add it to your .env file.")
+        return
 
-    brows = d1.get(url)
-    if brows:
-        try:
-            if url == "notepad":
-                os.system(brows)
-            else:
-                webbrowser.open_new_tab(brows)
-            speak(f"Opening {url}")
-        except Exception as e:
-            speak(f"Failed to open {url}")
-            print(f"Error opening {url}: {e}")
-    else:
-        # Fallback search
-        speak(f"Searching for {url} on the internet")
-        webbrowser.open_new_tab(f"https://www.google.com/search?q={url}")
-
-# ------------------- ASSISTANT LOOP -------------------
-def assistant_loop():
-    speak("Voice browser assistant is active. Say your command.")
-    while True:
-        query = listen()
-        if not query:
-            continue
-
-        query = query.lower().strip()
-        print(f"Processing: {query}")
-
-        # Exit command
-        if any(exit_word in query for exit_word in ["exit", "stop", "bye", "quit"]):
-            speak("Goodbye!")
-            speech_queue.put(None)
-            os._exit(0)
-
-        # Handle "open ..." OR just saying site name
-        if query.startswith("open "):
-            site = query.replace("open", "").strip()
-            if site:
-                browser(site)
-        else:
-            # Try dictionary or fallback
-            words = query.split()
-            if len(words) == 1:  
-                browser(words[0])
-            else:
-                speak("Processing your request...")
-                webbrowser.open_new_tab(f"https://www.google.com/search?q={query}")
-
-        time.sleep(1)
-
-# ------------------- TRAY ICON -------------------
-def on_quit(icon, item):
-    speak("Assistant terminated.")
-    speech_queue.put(None)
-    icon.stop()
-    os._exit(0)
-
-def on_start(icon, item):
-    threading.Thread(target=assistant_loop, daemon=True).start()
-    speak("Listening started.")
-
-def setup_tray():
     try:
-        icon_image = Image.open("mic_icon.png")
-    except:
-        icon_image = Image.new("RGB", (64, 64), color="blue")
+        # Ask for text + image response (matches the sample you verified)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-preview-image-generation",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=['TEXT', 'IMAGE']
+            )
+        )
 
-    menu = (item("Start", on_start), item("Quit", on_quit))
-    icon = pystray.Icon("VoiceAssistant", icon_image, "Voice Assistant", menu)
-    icon.run()
+        got_image = False
+        # Iterate over parts: optional descriptive text + the image blob
+        for part in response.candidates[0].content.parts:
+            if getattr(part, "text", None):
+                print("📝 Gemini says:", part.text)
+                # also speak back the text so you hear the description
+                speak(part.text)
 
-# ------------------- MAIN -------------------
+            if getattr(part, "inline_data", None) and getattr(part.inline_data, "mime_type", "").startswith("image/"):
+                # NOTE: inline_data.data is already bytes for the SDK you're using.
+                image = Image.open(BytesIO(part.inline_data.data))
+                image.load()  # make sure it’s fully decoded
+
+                os.makedirs("Generated_Images", exist_ok=True)
+                filename = f"Generated_Images/gemini_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                image.save(filename, format="PNG")
+                print(f"✅ Image saved at {filename}")
+                speak("Here is your generated image.")
+                try:
+                    os.startfile(filename)  # preserves your current workflow (e.g., Canva pickup)
+                except Exception:
+                    pass
+                got_image = True
+
+        if not got_image:
+            speak("I did not receive an image from Gemini for that request.")
+
+    except Exception as e:
+        print(f"❌ Error generating image: {e}")
+        speak("There was an error in generating the image.")
+
+# -------------------- MAIN COMMAND HANDLER --------------------
+def handle_command(command):
+    command = command.lower()
+
+    # === MINOR ADD: extra exit words as requested ====================
+    if any(x in command for x in ["exit", "quit", "goodbye", "bye"]):
+        speak("Goodbye Mariam, see you soon.")
+        exit()
+    # =================================================================
+
+    # Folders
+    folder = fuzzy_lookup(command, FOLDER_PATHS)
+    if folder:
+        path = FOLDER_PATHS[folder]
+        if os.path.exists(path):
+            os.startfile(path)
+            speak(f"Opening {folder}")
+            return
+
+    # Websites
+    site = fuzzy_lookup(command, WEBSITES)
+    if site:
+        webbrowser.open(WEBSITES[site])
+        speak(f"Opening {site}")
+        return
+
+    # Applications
+    app = fuzzy_lookup(command, APPS)
+    if app:
+        try:
+            subprocess.Popen(APPS[app])
+            speak(f"Opening {app}")
+        except Exception:
+            speak(f"Cannot open {app}")
+        return
+
+    # Image Generation (same triggers you already had)
+    if any(phrase in command for phrase in ["generate image", "create an image", "make an image", "draw", "imagine"]):
+        prompt = command
+        for phrase in ["generate image of", "generate image", "create an image of", "create an image",
+                       "make an image of", "make an image", "draw", "imagine"]:
+            prompt = prompt.replace(phrase, "").strip()
+        if prompt:
+            generate_image(prompt)
+        else:
+            speak("What should I create an image of?")
+        return
+
+    # Default
+    speak("Sorry, I didn't understand that command.")
+
+# -------------------- LISTENING LOOP --------------------
+def listen():
+    recognizer = sr.Recognizer()
+    mic = sr.Microphone()
+    with mic as source:
+        recognizer.adjust_for_ambient_noise(source)
+        audio = recognizer.listen(source)
+    try:
+        return recognizer.recognize_google(audio)
+    except sr.UnknownValueError:
+        return ""
+    except sr.RequestError:
+        speak("Speech recognition service error.")
+        return ""
+
 if __name__ == "__main__":
-    threading.Thread(target=speech_loop, daemon=True).start()
-
-    # FIX 👉 start assistant automatically at launch
-    threading.Thread(target=assistant_loop, daemon=True).start()
-
-    setup_tray()
+    speak("Hello Mariam, your voice agent is ready.")
+    while True:
+        print("Listening...")
+        cmd = listen()
+        if cmd:
+            print("You said:", cmd)
+            handle_command(cmd)

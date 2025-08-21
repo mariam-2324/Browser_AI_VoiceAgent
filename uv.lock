@@ -3224,6 +3224,7 @@ dependencies = [
     { name = "pystray" },
     { name = "python-dotenv" },
     { name = "pyttsx3" },
+    { name = "requests" },
     { name = "speechrecognition" },
 ]
 
@@ -3235,5 +3236,6 @@ requires-dist = [
     { name = "pystray", specifier = ">=0.19.5" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "pyttsx3", specifier = ">=2.99" },
+    { name = "requests", specifier = ">=2.32.4" },
     { name = "speechrecognition", specifier = ">=3.14.3" },
 ]
