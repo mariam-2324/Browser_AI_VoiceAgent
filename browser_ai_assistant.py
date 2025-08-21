@@ -1,6 +1,7 @@
 import os
 import webbrowser
 import subprocess
+from click import command
 import requests   # kept (unused now), per your request not to change other parts
 import base64     # kept (unused now)
 from difflib import get_close_matches
@@ -30,11 +31,14 @@ FOLDER_PATHS = {
 }
 
 WEBSITES = {
+    "gmail":     "https://mail.google.com/mail/u/0/?tab=rm&ogbl#inbox",
     "youtube": "https://www.youtube.com",
     "instagram": "https://www.instagram.com",
     "canva": "https://www.canva.com",
     "linkedin": "https://www.linkedin.com",
     "google": "https://www.google.com",
+    "facebook":  "https://www.facebook.com/",
+    "twitter":   "https://x.com/MariamSaad56124",
 }
 
 APPS = {
@@ -117,9 +121,11 @@ def handle_command(command):
     command = command.lower()
 
     # === MINOR ADD: extra exit words as requested ====================
-    if any(x in command for x in ["exit", "quit", "goodbye", "bye"]):
-        speak("Goodbye Mariam, see you soon.")
+    # Exit handling
+    if any(word in command for word in ["exit", "quit", "goodbye", "bye", "exiting", "close"]):
+        speak("Goodbye Mariam, May Allah keep you safe, bless your efforts, and grant you success. Ameen.")
         exit()
+
     # =================================================================
 
     # Folders
@@ -179,7 +185,8 @@ def listen():
         return ""
 
 if __name__ == "__main__":
-    speak("Hello Mariam, your voice agent is ready.")
+    speak("Bismillah hir Rahman nir Raheem. May Allah bless this work with barakah, "
+          "protect it from errors, and make it a source of benefit. Ameen. Hello Mariam, your voice agent is ready.")
     while True:
         print("Listening...")
         cmd = listen()
