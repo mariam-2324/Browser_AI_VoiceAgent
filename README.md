@@ -237,7 +237,7 @@ To showcase the functionality of the Voice Assistant, a demo video has been adde
 
 
 ## Demo Video 🎥
-Watch the demo video here: [📺Voice Assistant Demo](AI-browser.mp4)
+Watch the demo video here: [📺Voice Assistant Demo]([AI-browser.mp4](https://youtu.be/T1-ZBjpfI3U)
 
 This video provides a step-by-step walkthrough of how to use the assistant, including:
 - Launching the assistant from the system tray.
