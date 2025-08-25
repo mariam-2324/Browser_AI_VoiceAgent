@@ -230,8 +230,157 @@ if __name__ == "__main__":
   - Starts the speech loop thread.
   - Automatically starts the assistant loop (noted as a "FIX" to launch on startup).
   - Calls `setup_tray()` to display the icon and block until quit.
+  - 
 
-  # Voice Assistant Demo Video 📹
+
+## 🗂️ AI Browser Agent with Gemini Image Generation & Welcome/ farewell greeting as well.
+
+This project is an **AI-powered Browser Agent** that can: - Open
+websites like YouTube, Gmail, GitHub, LinkedIn, etc. - Open local
+folders (like `D:` drive, `Pictures`, etc.) - Generate images using
+**Google Gemini API** on voice command. - Respond with speech for
+actions and greetings. - Exit gracefully with a goodbye message.
+
+------------------------------------------------------------------------
+
+## 🔹 Features
+
+1.  **Voice Commands**
+    -   Supports: "open YouTube", "open Gmail", "open D drive", "open
+        Pictures".
+    -   Gemini prompt-based image generation.
+2.  **Folders**
+    -   Opens any specified local folder (like `D:\`,
+        `C:\Users\Mariam\Pictures`).
+3.  **Websites**
+    -   Opens mapped or searched websites directly.
+4.  **Image Generation**
+    -   Uses **Gemini API** to create AI-generated images from your
+        spoken prompts.
+5.  **Goodbye**
+    -   On commands like `exit`, `stop`, `quit`, it will say:\
+        *"Goodbye Mariam, May Allah keep you safe, bless your efforts,
+        and grant you success. Ameen."*
+
+------------------------------------------------------------------------
+
+## 🔹 Code Snippet (Main Parts)
+
+1. Import Required Libraries
+   
+``` python
+from io import BytesIO
+from PIL import Image
+from google import genai
+from google.genai import types
+```
+* ```BytesIO``` → handles byte streams (used for image data).
+
+* ```PIL.Image``` → to load and save images.
+
+* ```google.genai``` → Google Gemini API client.
+
+* ```types``` → specifies configuration for Gemini’s response (e.g., text + image).
+
+2. Initialize Gemini Client
+   
+```
+   API_KEY = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=API_KEY) if API_KEY else genai.Client()
+```
+* Reads API key from .env.
+* Creates the Gemini client to send requests.
+
+3. Image Generation Function
+
+```
+def generate_image(prompt: str):
+    if not API_KEY:
+        speak("Gemini API key is not set. Please add it to your .env file.")
+        return
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-preview-image-generation",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=['TEXT', 'IMAGE']
+            )
+        )
+```
+
+* Sends prompt to Gemini model.
+* Requests both text & image outputs.
+
+4. Handling Gemini’s Response
+
+```
+        got_image = False
+        for part in response.candidates[0].content.parts:
+            if getattr(part, "text", None):
+                print("📝 Gemini says:", part.text)
+                speak(part.text)
+
+            if getattr(part, "inline_data", None) and getattr(part.inline_data, "mime_type", "").startswith("image/"):
+                image = Image.open(BytesIO(part.inline_data.data))
+                image.load()
+```
+
+* Loops over Gemini’s response parts.
+* If text is present → prints & speaks it.
+* If image data is present → loads it as a PIL image.
+
+5. Save and Open the Image
+
+```
+os.makedirs("Generated_Images", exist_ok=True)
+filename = f"Generated_Images/gemini_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+image.save(filename, format="PNG")
+print(f"✅ Image saved at {filename}")
+speak("Here is your generated image.")
+try:
+    os.startfile(filename)
+except Exception:
+    pass
+got_image = True
+
+if not got_image:
+speak("I did not receive an image from Gemini for that request.")
+
+```   
+
+Creates a folder Generated_Images.
+
+* Saves image with timestamped filename.
+* Opens it automatically for user.
+
+  6. Error Handling
+ 
+  ```python
+      except Exception as e:
+        print(f"❌ Error generating image: {e}")
+        speak("There was an error in generating the image.")
+```
+
+* Plays an Islamic dua for blessings.
+* Greets the user by name.
+
+-------------------------------------------------------------------------------------------------
+7. **Farewell Greeting**
+In the ```handle_command()``` function:
+
+```python
+if any(word in command for word in ["exit", "quit", "goodbye", "bye", "exiting", "close"]):
+    speak("Goodbye Mariam, May Allah keep you safe, bless your efforts, and grant you success. Ameen.")
+    exit()
+```
+
+* Detects exit commands.
+* Speaks a farewell dua.
+* Exits program.   
+
+------------------------------------------------------------------------
+ # Voice Assistant Demo Video 📹
 
 To showcase the functionality of the Voice Assistant, a demo video has been added to the project repository. The video demonstrates the assistant's key features, including voice command recognition, opening websites and applications, and system tray interactions.
 
@@ -248,4 +397,5 @@ This video provides a step-by-step walkthrough of how to use the assistant, incl
 For the best experience, ensure your microphone and speakers are configured correctly before running the assistant. Refer to the main README for setup instructions. 🚀
 
 ## Summary 🛑
-This script creates a voice-controlled assistant that minimizes to the system tray, listens for commands like "open youtube" or "exit", and responds via speech while opening sites/apps. It uses threading for non-blocking operations, a queue for safe speech handling, and fallback mechanisms for robustness. Potential improvements include error handling for microphone access, expanding the site dictionary, or adding more commands. Overall, it's a lightweight, Windows-focused tool demonstrating integration of speech tech with desktop utilities. 🚀🗣️
+This script creates a voice-controlled assistant that minimizes to the system tray, listens for commands like "open youtube" or "exit", and responds via speech while opening sites/apps. It uses threading for non-blocking operations, a queue for safe speech handling, and fallback mechanisms for robustness. Potential improvements include error handling for microphone access, expanding the site dictionary, or adding more commands. Overall, it's a lightweight, Windows-focused tool demonstrating integration of speech tech with desktop utilities. I can generate images** --- all via voice commands.Uses **Google Gemini** for image generation.Gracefully exits with a personalized goodbye. stem tray icon lets you start/stop easily.
+🚀🗣️
